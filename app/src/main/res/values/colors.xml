@@ -11,5 +11,5 @@
     <color name="colorPrimaryDark">#00574B</color>
     <color name="colorAccent">#D81B60</color>
     <color name="colorButtonDefault">#FF4081</color> <!-- 기본 색상 -->
-    <color name="colorButtonPressed">#FFBB86FC</color> <!-- 눌렸을 때의 색상 -->
+    <color name="colorButtonPressed">#FF000000</color> <!-- 눌렸을 때의 색상 -->
 </resources>

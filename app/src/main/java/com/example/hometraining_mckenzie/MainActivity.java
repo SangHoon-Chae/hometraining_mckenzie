@@ -4,8 +4,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -28,28 +30,36 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-public class MainActivity extends AppCompatActivity implements SensorEventListener, SharedPreferences.OnSharedPreferenceChangeListener {
-    private IMUSession mIMUSession;
+public class MainActivity extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
+    private boolean recordingStarted = false;
     private final Handler mHandler = new Handler();
     private TextView mLabelAccelDataX, mLabelAccelDataY, mLabelAccelDataZ;
-    private RecyclerView exerList;
-    private List<String> titles;
-    private List<Integer> images;
-    private Adapter adapter;
+
     private Button startButton;
     private Button endButton;
-    private boolean startFlag = false;
     private String sensorData;
     private String currentExercise;
-    private SensorManager sensorManager;
     private SensorFileManager sensorFileManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Sensor accelerometer;
+
+        //Local variables
+        List<String> titles;
+        List<Integer> images;
+        Adapter adapter;
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Start the AccelerometerService with the start flag
+//        Intent serviceIntent = new Intent(this, AccelerometerService.class);
+//        serviceIntent.putExtra("startRecording", true); // Set to true when you want to start recording
+//        startService(serviceIntent);
+
+        // Register the BroadcastReceiver
+        IntentFilter filter = new IntentFilter("SENSOR_DATA");
+        registerReceiver(sensorDataReceiver, filter);
 
         //ExerChoice
         titles = new ArrayList<>();
@@ -58,25 +68,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        exerList = findViewById(R.id.exList);
+        RecyclerView exerList = findViewById(R.id.exList);
         exerList.setHasFixedSize(false);
 
         initializeViews();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         sensorFileManager = new SensorFileManager(this);
-
-//        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-//        if (sensorManager != null) {
-//            accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-//            if (accelerometer != null) {
-//                sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-//            } else {
-//                Toast.makeText(this, "Accelerometer not available", Toast.LENGTH_SHORT).show();
-//            }
-//        } else {
-//            Toast.makeText(this, "Sensor Service not available", Toast.LENGTH_SHORT).show();
-//        }
 
         titles.add("EXERCISE 1");
         titles.add("EXERCISE 2");
@@ -101,12 +99,41 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Save the data to the file
-                sensorData = sensorData.concat("Exercise type is " + currentExercise + "\n");
-                startFlag = true;
+                // Toggle the recording state
+                recordingStarted = !recordingStarted;
 
-                //버튼 색깔 변경
-                startButton.setBackgroundResource(R.color.colorButtonPressed);
+                if (recordingStarted) {
+                    // Save the data to the file
+                    if (currentExercise == null) {
+                        showToast("Exercise 를 먼저 선택하여 주십시오.");
+                        // If exercise not selected, revert the toggle state
+                        recordingStarted = false;
+                    } else {
+                        sensorData = sensorData.concat("Exercise type is " + currentExercise + "\n");
+
+                        // Send the start flag to the AccelerometerService
+                        Intent serviceIntent = new Intent(MainActivity.this, AccelerometerService.class);
+                        serviceIntent.putExtra("startRecording", true);
+                        startService(serviceIntent);
+
+                        showToast("'"+ currentExercise + "'" + " DATA 저장 시작. END 버튼을 누르면 종료됩니다.");
+
+                        // Change the button background based on the recording state
+                        updateButtonBackground();
+                    }
+                } else {
+                    // Save the data to the file
+                    sensorData = sensorData.concat("End of file \n");
+                    sensorFileManager.saveSensorData(sensorData);
+
+                    showToast("'"+ currentExercise + "'" + "DATA 저장 중단. 다시 시작하려면 START 버튼을 누르세요.");
+
+                    // Stop the AccelerometerService
+                    stopService(new Intent(MainActivity.this, AccelerometerService.class));
+
+                    // Change the button background based on the recording state
+                    updateButtonBackground();
+                }
             }
         });
 
@@ -114,44 +141,77 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             @Override
             public void onClick(View v) {
                 // Save the data to the file
-                if(startFlag) {
-                    startFlag = false;
-                    sensorData = sensorData.concat("End of file \n");
-                    sensorFileManager.saveSensorData(sensorData);
-                    finish();
-                }
-                else
-                    finish();
+                sensorData = sensorData.concat("End of file \n");
+                sensorFileManager.saveSensorData(sensorData);
+                finish();
             }
         });
+    }
+    private void updateButtonBackground() {
+        // Change the button background based on the recording state
+        int buttonBackgroundResource = recordingStarted ?R.color.colorButtonPressed : R.drawable.button_background;
+        startButton.setBackgroundResource(buttonBackgroundResource);
+    }
+
+    public void showToast(final String text) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(MainActivity.this, text, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private BroadcastReceiver sensorDataReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction() != null && intent.getAction().equals("SENSOR_DATA")) {
+                float[] sensorDataFloat = intent.getFloatArrayExtra("sensorDataFloat");
+                // Update UI with sensor data
+                // Format the data as needed
+                sensorData = sensorData.concat(String.format("X: %.2f, Y: %.2f, Z: %.2f", sensorDataFloat[0], sensorDataFloat[1], sensorDataFloat[2]) + "\n");
+
+                updateUI(sensorDataFloat);
+            }
+        }
+    };
+    private void updateUI(float[] sensorDataFloat) {
+        // Update your UI elements with the received sensor data
+        // For example, update TextViews, RecyclerView, etc.
+        // mLabelAccelDataX.setText(sensorData); // Example
+
+        mLabelAccelDataX.setText(String.format(Locale.US, "%.3f", sensorDataFloat[0]));
+        mLabelAccelDataY.setText(String.format(Locale.US, "%.3f", sensorDataFloat[1]));
+        mLabelAccelDataZ.setText(String.format(Locale.US, "%.3f", sensorDataFloat[2]));
+
     }
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
         // Handle changes in SharedPreferences here
         if (key.equals("exer")) {
-            String flagValue = sharedPreferences.getString("exer", "");
+            String exerType = sharedPreferences.getString("exer", "");
 
             // Update the currentExercise based on the flag value
-            updateImageView(Integer.valueOf(flagValue));
+            updateImageView(Integer.valueOf(exerType));
         }
     }
 
-    private void updateImageView(int flagValue) {
+    private void updateImageView(int exerType) {
         // Use the flag value to determine which image to display in the ImageView
         ImageView imageView = findViewById(R.id.exerciseImage);
 
-        switch (flagValue) {
+        switch (exerType) {
             case 1:
-                currentExercise = "Q-SET";
+                currentExercise = "EXERCISE 1";
                 imageView.setImageResource(R.drawable.exer1);
                 break;
             case 2:
-                currentExercise = "Q-Walk";
+                currentExercise = "EXERCISE 2";
                 imageView.setImageResource(R.drawable.exer2);
                 break;
             case 3:
-                currentExercise = "Side-Walk";
+                currentExercise = "EXERCISE 3";
                 imageView.setImageResource(R.drawable.exer3);
                 break;
 //            case 4:
@@ -171,34 +231,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     @Override
-    public void onSensorChanged(SensorEvent event) {
-        if(startFlag) {
-            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-                float x = event.values[0];
-                float y = event.values[1];
-                float z = event.values[2];
-
-                // Format the data as needed
-                sensorData = sensorData.concat(String.format("X: %.2f, Y: %.2f, Z: %.2f", x, y, z) + "\n");
-
-                mLabelAccelDataX.setText(String.format(Locale.US, "%.3f", x));
-                mLabelAccelDataY.setText(String.format(Locale.US, "%.3f", y));
-                mLabelAccelDataZ.setText(String.format(Locale.US, "%.3f", z));
-            }
-        }
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        // Not needed for this example
-    }
-
-    @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        if (sensorManager != null) {
-            sensorManager.unregisterListener(this);
-        }
+
+        // Unregister the BroadcastReceiver
+        unregisterReceiver(sensorDataReceiver);
+
+        // Stop the AccelerometerService
+        stopService(new Intent(this, AccelerometerService.class));
     }
 }

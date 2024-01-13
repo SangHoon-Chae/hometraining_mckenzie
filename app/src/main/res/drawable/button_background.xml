@@ -1,5 +1,14 @@
 <!-- res/drawable/button_background.xml -->
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_pressed="true" android:drawable="@color/colorButtonPressed" />
-    <item android:drawable="@color/colorButtonDefault" />
-</selector>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <corners android:radius="8dp" /> <!-- Adjust the radius to control the corner roundness -->
+
+    <gradient
+        android:angle="90"
+        android:startColor="#F5F5DC"
+        android:endColor="#808080" /> <!-- Muted green -->
+
+    <stroke
+        android:width="2dp"
+        android:color="#808080" /> <!-- Border color, e.g., gray -->
+
+</shape>
