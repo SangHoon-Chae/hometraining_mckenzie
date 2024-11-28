@@ -64,7 +64,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         //ExerChoice
         titles = new ArrayList<>();
         images = new ArrayList<>();
-        sensorData = new String("Start of file \n");
+        sensorData = new String("");
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -109,7 +109,8 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                         // If exercise not selected, revert the toggle state
                         recordingStarted = false;
                     } else {
-                        sensorData = sensorData.concat("Exercise type is " + currentExercise + "\n");
+                        sensorData = sensorData.concat(currentExercise + "\n");
+                        sensorData = sensorData.concat("Accelerometer\n");
 
                         // Send the start flag to the AccelerometerService
                         Intent serviceIntent = new Intent(MainActivity.this, AccelerometerService.class);
@@ -123,7 +124,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                     }
                 } else {
                     // Save the data to the file
-                    sensorData = sensorData.concat("End of file \n");
+                    sensorData = sensorData.concat("End of file\n");
                     sensorFileManager.saveSensorData(sensorData);
 
                     showToast("'"+ currentExercise + "'" + "DATA 저장 중단. 다시 시작하려면 START 버튼을 누르세요.");
@@ -141,7 +142,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             @Override
             public void onClick(View v) {
                 // Save the data to the file
-                sensorData = sensorData.concat("End of file \n");
+                sensorData = sensorData.concat("End of file\n");
                 sensorFileManager.saveSensorData(sensorData);
                 finish();
             }
@@ -166,24 +167,37 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction() != null && intent.getAction().equals("SENSOR_DATA")) {
-                float[] sensorDataFloat = intent.getFloatArrayExtra("sensorDataFloat");
-                // Update UI with sensor data
-                // Format the data as needed
-                sensorData = sensorData.concat(String.format("X: %.2f, Y: %.2f, Z: %.2f", sensorDataFloat[0], sensorDataFloat[1], sensorDataFloat[2]) + "\n");
+                // Get accelerometer and gyroscope data
+                float[] accelerometerData = intent.getFloatArrayExtra("accelerometerData");
+                float[] gyroscopeData = intent.getFloatArrayExtra("gyroscopeData");
 
-                updateUI(sensorDataFloat);
+                // Append data to the sensorData string
+                    sensorData = sensorData.concat(
+                        String.format("Accel: %.2f\t%.2f\t%.2f\tGyro: %.2f\t%.2f\t%.2f\n",
+                                accelerometerData[0], accelerometerData[1], accelerometerData[2],
+                                gyroscopeData[0], gyroscopeData[1], gyroscopeData[2])
+                );
+                // Update UI with sensor data
+                updateUI(accelerometerData, gyroscopeData);
             }
         }
     };
-    private void updateUI(float[] sensorDataFloat) {
-        // Update your UI elements with the received sensor data
-        // For example, update TextViews, RecyclerView, etc.
-        // mLabelAccelDataX.setText(sensorData); // Example
 
-        mLabelAccelDataX.setText(String.format(Locale.US, "%.3f", sensorDataFloat[0]));
-        mLabelAccelDataY.setText(String.format(Locale.US, "%.3f", sensorDataFloat[1]));
-        mLabelAccelDataZ.setText(String.format(Locale.US, "%.3f", sensorDataFloat[2]));
+    private void updateUI(float[] accelerometerData, float[] gyroscopeData){
+        // Update accelerometer data on UI
+        mLabelAccelDataX.setText(String.format(Locale.US, "Accel X: %.3f", accelerometerData[0]));
+        mLabelAccelDataY.setText(String.format(Locale.US, "Accel Y: %.3f", accelerometerData[1]));
+        mLabelAccelDataZ.setText(String.format(Locale.US, "Accel Z: %.3f", accelerometerData[2]));
 
+        // Assuming you have TextViews for gyroscope data
+        TextView mLabelGyroDataX = findViewById(R.id.label_gyro_X);
+        TextView mLabelGyroDataY = findViewById(R.id.label_gyro_Y);
+        TextView mLabelGyroDataZ = findViewById(R.id.label_gyro_Z);
+
+        // Update gyroscope data on UI
+        mLabelGyroDataX.setText(String.format(Locale.US, "Gyro X: %.3f", gyroscopeData[0]));
+        mLabelGyroDataY.setText(String.format(Locale.US, "Gyro Y: %.3f", gyroscopeData[1]));
+        mLabelGyroDataZ.setText(String.format(Locale.US, "Gyro Z: %.3f", gyroscopeData[2]));
     }
 
     @Override
@@ -203,15 +217,18 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
 
         switch (exerType) {
             case 1:
-                currentExercise = "EXERCISE 1";
+                // EXERCISE 1 = FlexExer
+                currentExercise = "FlexExer";
                 imageView.setImageResource(R.drawable.exer1);
                 break;
             case 2:
-                currentExercise = "EXERCISE 2";
+                // EXERCISE 2 = ScapExer
+                currentExercise = "ScapExer";
                 imageView.setImageResource(R.drawable.exer2);
                 break;
             case 3:
-                currentExercise = "EXERCISE 3";
+                // EXERCISE 3 = WallSlide
+                currentExercise = "WallSlide";
                 imageView.setImageResource(R.drawable.exer3);
                 break;
 //            case 4:
@@ -233,8 +250,6 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
-
         // Unregister the BroadcastReceiver
         unregisterReceiver(sensorDataReceiver);
 

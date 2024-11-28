@@ -16,8 +16,12 @@ import java.util.List;
 public class AccelerometerService extends Service implements SensorEventListener {
     private SensorManager sensorManager;
     private Sensor accelerometer;
+    private Sensor gyroscope;
     private boolean startRecording = false;
     private static final int SAMPLING_RATE = SensorManager.SENSOR_DELAY_NORMAL;
+
+    private float[] accelerometerData = new float[3];
+    private float[] gyroscopeData = new float[3];
 
     @Override
     public void onCreate() {
@@ -36,8 +40,13 @@ public class AccelerometerService extends Service implements SensorEventListener
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         if (sensorManager != null) {
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+
             if (accelerometer != null) {
                 sensorManager.registerListener(this, accelerometer, SAMPLING_RATE);
+            }
+            if (gyroscope != null) {
+                sensorManager.registerListener(this, gyroscope, SAMPLING_RATE);
             }
         }
         return START_STICKY; // or other appropriate return value
@@ -56,22 +65,21 @@ public class AccelerometerService extends Service implements SensorEventListener
     public void onSensorChanged(SensorEvent event) {
         // Handle sensor data changes here
         if (startRecording) {
-            float x = event.values[0];
-            float y = event.values[1];
-            float z = event.values[2];
+            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                accelerometerData[0] = event.values[0];
+                accelerometerData[1] = event.values[1];
+                accelerometerData[2] = event.values[2];
+            } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+                gyroscopeData[0] = event.values[0];
+                gyroscopeData[1] = event.values[1];
+                gyroscopeData[2] = event.values[2];
+            }
 
-            // Do something with the accelerometer data
-            // Format the data as needed
-            //String sensorData = String.format("X: %.2f, Y: %.2f, Z: %.2f", x, y, z);
-            float[] sensorData = new float[3];
-
-            sensorData[0] = x;
-            sensorData[1] = y;
-            sensorData[2] = z;
-
-            // Send the sensor data to the MainActivity using a broadcast
+            // Broadcast both accelerometer and gyroscope data
             Intent broadcastIntent = new Intent("SENSOR_DATA");
-            broadcastIntent.putExtra("sensorDataFloat", sensorData);
+            broadcastIntent.putExtra("accelerometerData", accelerometerData);
+            broadcastIntent.putExtra("gyroscopeData", gyroscopeData);
+
             sendBroadcast(broadcastIntent);
         }
     }
