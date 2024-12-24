@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.BODY_SENSORS" />
 
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32"
+        android:maxSdkVersion="35"
         tools:ignore="ScopedStorage" />
     <uses-permission android:name="requestLegacyExternalStorage" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -29,7 +31,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat"
-        tools:targetApi="31">
+        tools:targetApi="34">
 
         <service
             android:name=".AccelerometerService"
@@ -37,6 +39,14 @@
             android:exported="false">
 
         </service>
+
+        <receiver android:name=".AccelerometerService"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.SENSOR_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <meta-data
             android:name="com.google.android.actions"
@@ -46,6 +56,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="portrait">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -53,5 +64,6 @@
             </intent-filter>
         </activity>
     </application>
+
 
 </manifest>

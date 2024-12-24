@@ -1,5 +1,6 @@
 package com.example.hometraining_mckenzie;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -13,6 +14,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
@@ -29,6 +31,7 @@ import com.example.hometraining_mckenzie.imu_data.IMUSession;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import android.content.Context;
 
 public class MainActivity extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
     private boolean recordingStarted = false;
@@ -40,6 +43,34 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     private String sensorData;
     private String currentExercise;
     private SensorFileManager sensorFileManager;
+
+    @Override
+    public Intent registerReceiver(@Nullable BroadcastReceiver sensorDataReceiver, IntentFilter filter) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return super.registerReceiver(sensorDataReceiver, filter, Context.RECEIVER_EXPORTED);
+        } else {
+            return super.registerReceiver(sensorDataReceiver, filter);
+        }
+    }
+    private BroadcastReceiver sensorDataReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction() != null && intent.getAction().equals("SENSOR_DATA")) {
+                // Get accelerometer and gyroscope data
+                float[] accelerometerData = intent.getFloatArrayExtra("accelerometerData");
+                float[] gyroscopeData = intent.getFloatArrayExtra("gyroscopeData");
+
+                // Append data to the sensorData string
+                sensorData = sensorData.concat(
+                        String.format("Accel: %.2f\t%.2f\t%.2f\tGyro: %.2f\t%.2f\t%.2f\n",
+                                accelerometerData[0], accelerometerData[1], accelerometerData[2],
+                                gyroscopeData[0], gyroscopeData[1], gyroscopeData[2])
+                );
+                // Update UI with sensor data
+                updateUI(accelerometerData, gyroscopeData);
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -162,26 +193,6 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             }
         });
     }
-
-    private BroadcastReceiver sensorDataReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction() != null && intent.getAction().equals("SENSOR_DATA")) {
-                // Get accelerometer and gyroscope data
-                float[] accelerometerData = intent.getFloatArrayExtra("accelerometerData");
-                float[] gyroscopeData = intent.getFloatArrayExtra("gyroscopeData");
-
-                // Append data to the sensorData string
-                    sensorData = sensorData.concat(
-                        String.format("Accel: %.2f\t%.2f\t%.2f\tGyro: %.2f\t%.2f\t%.2f\n",
-                                accelerometerData[0], accelerometerData[1], accelerometerData[2],
-                                gyroscopeData[0], gyroscopeData[1], gyroscopeData[2])
-                );
-                // Update UI with sensor data
-                updateUI(accelerometerData, gyroscopeData);
-            }
-        }
-    };
 
     private void updateUI(float[] accelerometerData, float[] gyroscopeData){
         // Update accelerometer data on UI
